@@ -1,0 +1,35 @@
+import User from "../Models/UserModel.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
+export default async function Login(req, res) {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user)
+      return res.status(404).json({ error: "User Not Found", success: false });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch)
+      return res
+        .status(401)
+        .json({ error: "Invalid Credentials", success: false });
+
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+      maxAge: 3600000,
+    });
+    res.status(201).json({
+      message: "User logged in successfully",
+      success: true,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: `Error Occurred: ${err}` });
+  }
+}
